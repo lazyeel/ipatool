@@ -1,3 +1,6 @@
+# Copyright 2026 lazyeel (https://github.com/lazyeel)
+# SPDX-License-Identifier: Apache-2.0
+
 {
   description = "ipatool-cpp with SMS 2FA — download App Store IPAs without trusted Apple devices";
 
