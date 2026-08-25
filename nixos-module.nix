@@ -1,3 +1,6 @@
+# Copyright 2026 lazyeel (https://github.com/lazyeel)
+# SPDX-License-Identifier: Apache-2.0
+
 # NixOS integration: overlay + home-manager / NixOS module examples.
 #
 # 1. Overlay (makes `ipatool` available to all nixpkgs consumers):
