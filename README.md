@@ -105,7 +105,7 @@ Authentication (GSA SRP + SMS) works, anisette generation works natively, and th
 
 This project distribution and its native engine components are licensed under the **Apache License, Version 2.0 with a NOTICE file**.
 
-* All native ARM64 Bionic ADI/Anisette loader implementations, FairPlay protocol research, SMS 2FA subsystems, and new components authored by **lazyeel** are licensed under the **Apache License, Version 2.0**.
+* All native ARM64 Bionic ADI/Anisette loader implementations, StoreServices/FPDI protocol research, SMS 2FA subsystems, and new components authored by **lazyeel** are licensed under the **Apache License, Version 2.0**
 * Upstream C++ codebase components inherited from **Sorvigolova/ipatool** and original protocol implementations from **majd/ipatool** remain licensed under their original **MIT License** (see [`LICENSE-MIT`](LICENSE-MIT)).
 
 See [`LICENSE`](LICENSE) for the full Apache-2.0 terms, [`LICENSE-MIT`](LICENSE-MIT) for upstream terms, and [`NOTICE`](NOTICE) for mandatory downstream attribution requirements.
