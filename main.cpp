@@ -1304,6 +1304,14 @@ int main(int argc, char** argv) {
     init_mem_passphrase(passphrase);
     atexit(wipe_mem_passphrase);
 
+    // Fork fix: bare --help / -h never reach the dispatcher below —
+    // parse_args() swallows them as application flags ("help"/"h"),
+    // leaving zero positionals. Handle them like `ipatool help`.
+    if (args.pos.empty() && (args.flags.count("help") || args.flags.count("h"))) {
+        print_help();
+        return 0;
+    }
+
     // Determine subcommand from leading positionals only (not app arguments)
     // e.g. ["auth", "login", ...] -> "auth login"
     //      ["search", "Minecraft", ...] -> "search"  (rest are args)
