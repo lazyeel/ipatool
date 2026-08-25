@@ -1,4 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# Copyright 2026 lazyeel (https://github.com/lazyeel)
+# SPDX-License-Identifier: Apache-2.0
+
 # Build ipatool with the native ADI anisette engine (Termux/Android).
 set -e
 cd "$(dirname "$0")"

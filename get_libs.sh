@@ -1,4 +1,7 @@
-#!/usr/bin/env bash
+#!/bin/bash
+# Copyright 2026 lazyeel (https://github.com/lazyeel)
+# SPDX-License-Identifier: Apache-2.0
+
 # Fetch the classic ADI engine libraries from Apple Music 2.9.0 for Android.
 # These are Apple's proprietary binaries and are NOT stored in this repo.
 # The script downloads them, extracts the needed set, and verifies each file

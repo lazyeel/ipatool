@@ -530,7 +530,8 @@ static void print_red_err(const std::string& msg) {
 //   2. fetch_from_exe()     — anisette.exe from PATH (Win7 + iTunes fallback)
 //
 // On macOS/Linux:
-//   fetch_from_public_servers() — SideStore-style public servers
+//   1. generate_locally()      — native ADI engine (libs-classic/, Termux)
+//   2. fetch_from_public_servers() — SideStore-style public servers
 static AnisetteData fetch_anisette(HttpClient& http, bool debug = false)
 {
 #ifdef _WIN32
@@ -555,6 +556,16 @@ static AnisetteData fetch_anisette(HttpClient& http, bool debug = false)
         "  Option A: install iCloud from Microsoft Store and sign in\n"
         "  Option B: put anisette.exe in PATH or same directory as ipatool");
 #else
+    // 1. Native ADI engine (Apple Music 2.9.0 classic stack, ./libs-classic)
+    try {
+        AnisetteData a = AnisetteData::generate_locally();
+        fprintf(stderr, "[anisette] source: native ADI engine\n");
+        return a;
+    } catch (const std::exception& e) {
+        fprintf(stderr, "[anisette] native ADI unavailable: %s\n", e.what());
+    }
+    // 2. Fallback — SideStore-style public servers
+    fprintf(stderr, "[anisette] source: public servers (fallback)\n");
     return AnisetteData::fetch_from_public_servers(http, debug);
 #endif
 }

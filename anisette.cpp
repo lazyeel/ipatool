@@ -1,3 +1,6 @@
+// Modified by lazyeel (https://github.com/lazyeel)
+// SPDX-License-Identifier: Apache-2.0
+
 #include "anisette.h"
 #include "ipatool.h"
 #include <nlohmann/json.hpp>
@@ -504,10 +507,11 @@ AnisetteData AnisetteData::generate_locally()
 }
 
 #else // !_WIN32
-
+#ifndef IPATOOL_ADI_ANISETTE
 AnisetteData AnisetteData::generate_locally()
 {
-    throw IpaError("anisette: generate_locally() is only supported on Windows");
+    throw IpaError("anisette: generate_locally() requires the ADI engine "
+                   "(libs-classic/ next to the binary)");
 }
-
+#endif // IPATOOL_ADI_ANISETTE
 #endif // _WIN32
