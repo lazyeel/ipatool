@@ -1,3 +1,6 @@
+# Copyright 2026 lazyeel (https://github.com/lazyeel)
+# SPDX-License-Identifier: Apache-2.0
+
 # Plain (non-flake) Nix build for ipatool-cpp-sms
 { pkgs ? import <nixpkgs> {} }:
 
