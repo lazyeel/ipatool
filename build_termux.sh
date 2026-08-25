@@ -19,11 +19,11 @@ fi
 echo "[3/3] Building..."
 rm -rf build-adi
 if ! cmake -B build-adi -DCMAKE_BUILD_TYPE=Release; then
-    echo "CMAKE FAILED. Full log above."
+    echo "CMAKE FAILED — full log above."
     exit 1
 fi
 if ! make -C build-adi -j"$(nproc)"; then
-    echo "BUILD FAILED. Errors above."
+    echo "BUILD FAILED — errors above."
     exit 1
 fi
 cp build-adi/ipatool ./ipatool

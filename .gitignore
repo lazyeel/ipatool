@@ -14,3 +14,5 @@ result-*
 
 # downloaded APKs
 am_old/
+libs-new/
+am_new.xapk

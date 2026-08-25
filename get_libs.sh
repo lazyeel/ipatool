@@ -69,6 +69,38 @@ if missing:
 print("all classic ADI exports present.")
 PY
 
+
+# Also download Apple Music 6.5.x for FairPlay SAP testing (sap_test)
+if [ ! -f libs-new/libstoreapi.so ]; then
+    echo "[extra] downloading com.apple.android.music 6.5.x for FairPlay SAP..."
+    mkdir -p libs-new
+    curl -sL --max-time 240 \
+        -H "User-Agent: Mozilla/5.0 (Linux; Android 14; Pixel 8) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/124.0.0.0 Mobile Safari/537.36" \
+        -H "Accept: application/vnd.android.package-archive, */*" \
+        -H "Referer: https://apkpure.com/apple-music/com.apple.android.music/download" \
+        "https://d.apkpure.com/b/XAPK/com.apple.android.music?version=latest" \
+        -o am_new.xapk
+    python3 - << 'PY2'
+import zipfile, os, sys
+try:
+    z = zipfile.ZipFile('am_new.xapk')
+    os.makedirs('libs-new', exist_ok=True)
+    # extract the arm64 config APK first, then libs from it
+    for n in z.namelist():
+        if 'arm64_v8a' in n and n.endswith('.apk'):
+            inner = zipfile.ZipFile(z.open(n))
+            for lib in inner.namelist():
+                if lib.endswith('.so') and 'arm64' in lib:
+                    data = inner.read(lib)
+                    out = 'libs-new/' + lib.split('/')[-1]
+                    open(out, 'wb').write(data)
+                    print(f"  extracted {out} ({len(data)/1e6:.1f}MB)")
+            break
+except Exception as e:
+    print(f"  warning: could not extract 6.5.x: {e}", file=sys.stderr)
+PY2
+fi
+
 echo ""
 echo "Done. Libraries are in ./libs-classic/ (do NOT commit them)."
 echo "Run: ./adi_test ./libs-classic"
