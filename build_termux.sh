@@ -1,4 +1,4 @@
-#!/bin/bash
+#!/usr/bin/env bash
 # Copyright 2026 lazyeel (https://github.com/lazyeel)
 # SPDX-License-Identifier: Apache-2.0
 
