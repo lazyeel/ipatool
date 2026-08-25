@@ -23,10 +23,10 @@ jobs:
       - name: Package
         run: |
           mkdir -p dist
-          cp build-static/ipatool dist/ipatool-sms-linux-amd64
+          cp build-static/ipatool dist/ipatool-adi-linux-amd64
           cp LICENSE LICENSE-MIT NOTICE dist/
-          tar czf dist/ipatool-sms-linux-amd64.tar.gz -C dist ipatool-sms-linux-amd64 LICENSE LICENSE-MIT NOTICE
-          ( cd dist && sha256sum ipatool-sms-linux-amd64.tar.gz > SHA256SUMS )
+          tar czf dist/ipatool-adi-linux-amd64.tar.gz -C dist ipatool-adi-linux-amd64 LICENSE LICENSE-MIT NOTICE
+          ( cd dist && sha256sum ipatool-adi-linux-amd64.tar.gz > SHA256SUMS )
       - uses: actions/upload-artifact@v4
         with:
           name: linux-amd64
