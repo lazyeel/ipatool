@@ -119,16 +119,17 @@ Suggested attribution:
 
 ---
 
-# Upstream documentation (Sorvigolova/ipatool)
-
-The sections below document features inherited unchanged from upstream.
-
-
 ## Acknowledgements
 
-* **[Sorvigolova/ipatool](https://github.com/Sorvigolova/ipatool):** the C++ codebase this fork builds on, and the upstream documentation reproduced below.
+* **[Sorvigolova/ipatool](https://github.com/Sorvigolova/ipatool):** the C++ codebase this fork builds on; inherited features are documented in the upstream README.
 * **[majd/ipatool](https://github.com/majd/ipatool):** the original tool and protocol implementation.
 * **[Dadoum/Provision](https://github.com/Dadoum/Provision):** mapped out the GrandSlam ADI provisioning protocol and the roles of the obfuscated exports in `libstoreservicescore.so`. Our C++ engine follows the approach documented there.
 * **[SideStore](https://github.com/SideStore):** the `DS_ID = -2` anonymous-machine semantics and anisette server design ([omnisette](https://github.com/SideStore/omnisette)).
 * **Apple:** the ADI libraries themselves come from the Apple Music for Android package and remain proprietary; they are downloaded at runtime by `get_libs.sh`, never redistributed here.
 * **[thegaiko](https://github.com/thegaiko) and [kda2495](https://github.com/kda2495):** reverse-engineering notes and field reports on the 2026 commerce gate (see `STATUS.md`, *"The wall"*).
+
+---
+
+# Upstream documentation (Sorvigolova/ipatool)
+
+Features inherited unchanged from upstream (machine-bound credential encryption, static builds on all three desktop platforms, the full command set: `auth`, `search`, `purchase`, `download`, `list-versions`, native MS Store iCloud anisette on Windows) are documented in the [Sorvigolova/ipatool README](https://github.com/Sorvigolova/ipatool#readme).
