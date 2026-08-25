@@ -1,0 +1,33 @@
+name: Build
+
+on:
+  push:
+    tags: [ 'v*' ]
+  workflow_dispatch:
+
+jobs:
+  linux-static:
+    runs-on: ubuntu-22.04
+    steps:
+      - uses: actions/checkout@v4
+      - name: Install deps
+        run: |
+          sudo apt-get update -qq
+          sudo apt-get install -y -qq cmake make g++ libssl-dev libcurl4-openssl-dev zlib1g-dev libminizip-dev libzstd-dev
+      - name: Configure & build (static)
+        run: |
+          cmake -B build-static -DCMAKE_BUILD_TYPE=Release -DSTATIC_BUILD=ON
+          cmake --build build-static -j$(nproc)
+      - name: Smoke test
+        run: ./build-static/ipatool --help | head -5
+      - name: Package
+        run: |
+          mkdir -p dist
+          cp build-static/ipatool dist/ipatool-sms-linux-amd64
+          cp LICENSE LICENSE-MIT NOTICE dist/
+          tar czf dist/ipatool-sms-linux-amd64.tar.gz -C dist ipatool-sms-linux-amd64 LICENSE LICENSE-MIT NOTICE
+          ( cd dist && sha256sum ipatool-sms-linux-amd64.tar.gz > SHA256SUMS )
+      - uses: actions/upload-artifact@v4
+        with:
+          name: linux-amd64
+          path: dist/*

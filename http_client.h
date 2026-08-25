@@ -1,3 +1,6 @@
+// Modified by lazyeel (https://github.com/lazyeel)
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 // HTTP client built on libcurl.
 // SSL backend: Schannel (Windows) — native, fast, no OpenSSL dependency for HTTPS.
@@ -35,6 +38,14 @@ public:
 
     HttpResponse get(const std::string& url,
                      const std::map<std::string,std::string>& reqHeaders = {}) const;
+
+    // Generic method passthrough (PUT/DELETE/etc.) — wraps perform().
+    HttpResponse request(const std::string& method,
+                         const std::string& url,
+                         const std::string& body,
+                         const std::map<std::string,std::string>& reqHeaders) const {
+        return perform(method, url, body, reqHeaders);
+    }
 
     void download(const std::string& url,
                   const std::string& destPath,

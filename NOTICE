@@ -1,0 +1,12 @@
+Native ADI Engine & ipatool
+Copyright 2026 lazyeel (https://github.com/lazyeel)
+
+This product includes software and research developed by lazyeel:
+- Native ARM64 Bionic ADI/Anisette loader engine (adi-engine)
+- FairPlay SAP and FPDI protocol reverse engineering and toolchain (sap-engine)
+- Interactive SMS two-factor authentication subsystem (GSA SMS 2FA)
+- Storefront override and extended error diagnostic mechanisms
+
+This product also includes software originally developed by:
+- Sorvigolova (https://github.com/Sorvigolova/ipatool), licensed under the MIT License (see LICENSE-MIT).
+- Majd Alfhaily (https://github.com/majd/ipatool), Copyright 2021 Majd Alfhaily, licensed under the MIT License (see LICENSE-MIT).

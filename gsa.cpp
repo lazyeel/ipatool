@@ -1,3 +1,6 @@
+// Modified by lazyeel (https://github.com/lazyeel)
+// SPDX-License-Identifier: Apache-2.0
+
 #include "gsa.h"
 #include <sstream>
 #include <iostream>
@@ -261,13 +264,125 @@ Account GsaClient::login(const std::string&  email,
                 const std::string fa_dsid = dict_str(spd, "adsid");
                 const std::string fa_tok  = dict_str(spd, "GsIdmsToken");
 
+                // authCode == "__sms__" → interactive SMS sub-flow
+                if (authCode == "__sms__") {
+                    fprintf(stderr, "[2FA-SMS] fetching auth page for phone id...\n");
+                    const std::string page = fetch_phone_page(fa_dsid, fa_tok, anisette);
+
+                    // The page embeds <script class="boot_args">{JSON}</script>.
+                    // Path of interest: direct.phoneNumberVerification.trustedPhoneNumber.id
+                    // (numeric or string). Fall back to a recursive hunt, then to "1".
+                    std::string phone_id;
+                    {
+                        const std::string marker = "class=\"boot_args\">";
+                        auto p0 = page.find(marker);
+                        if (p0 == std::string::npos)
+                            p0 = page.find("boot_args");
+                        auto js = (p0 == std::string::npos)
+                                      ? std::string::npos : page.find('{', p0);
+                        auto je = (js == std::string::npos)
+                                      ? std::string::npos : page.find("</script>", js);
+                        if (js != std::string::npos && je != std::string::npos) {
+                            const std::string blob = page.substr(js, je - js);
+                            try {
+                                auto j = nlohmann::json::parse(blob, nullptr, false);
+                                if (!j.is_discarded()) {
+                                    const auto* pv = &j.at("direct")
+                                                        .at("phoneNumberVerification");
+                                    std::function<void(const nlohmann::json&)> hunt =
+                                        [&](const nlohmann::json& node) {
+                                        if (!phone_id.empty()) return;
+                                        if (node.is_object()) {
+                                            for (auto it = node.begin();
+                                                 it != node.end(); ++it) {
+                                                if (!phone_id.empty()) return;
+                                                const bool phoneish =
+                                                    it.key().find("trustedPhoneNumber")
+                                                        != std::string::npos ||
+                                                    it.key().find("honeNumber")
+                                                        != std::string::npos;
+                                                if (phoneish && it.value().is_object() &&
+                                                    it.value().contains("id")) {
+                                                    const auto& idv = it.value()["id"];
+                                                    phone_id = idv.is_number()
+                                                        ? std::to_string(
+                                                              idv.get<long long>())
+                                                        : idv.is_string()
+                                                            ? idv.get<std::string>()
+                                                            : "";
+                                                    return;
+                                                }
+                                                if (it.value().is_object())
+                                                    hunt(it.value());
+                                                else if (it.value().is_array())
+                                                    for (const auto& e : it.value()) {
+                                                        hunt(e);
+                                                        if (!phone_id.empty()) return;
+                                                    }
+                                            }
+                                        }
+                                    };
+                                    hunt(*pv);
+                                    if (phone_id.empty() &&
+                                        pv->contains("trustedPhoneNumber") &&
+                                        (*pv)["trustedPhoneNumber"].is_null())
+                                        fprintf(stderr,
+                                            "[2FA-SMS] note: trustedPhoneNumber is null; "
+                                            "using id '1'\n");
+                                }
+                            } catch (const std::exception& e) {
+                                if (m_debug)
+                                    fprintf(stderr, "[2FA-SMS] boot_args parse: %s\n",
+                                            e.what());
+                            }
+                        } else if (m_debug) {
+                            fprintf(stderr, "[2FA-SMS] no boot_args block (%zu bytes)\n",
+                                    page.size());
+                        }
+                    }
+                    if (phone_id.empty()) phone_id = "1";
+                    fprintf(stderr, "[2FA-SMS] using phone id '%s'\n", phone_id.c_str());
+
+                    // Apple sends the SMS automatically right after the 409.
+                    // Ask for the code first; empty input triggers a resend via
+                    // PUT idmsa.apple.com/appleauth/auth/verify/phone.
+                    fprintf(stderr,
+                            "[2FA-SMS] enter the code from the SMS "
+                            "(or press Enter to request a new one): ");
+                    fflush(stderr);
+                    std::string smscode; std::getline(std::cin, smscode);
+                    while (!smscode.empty() &&
+                           (smscode.back()=='\r' || smscode.back()=='\n'))
+                        smscode.pop_back();
+
+                    if (smscode.empty()) {
+                        if (!do_phone_submit(fa_dsid, fa_tok, phone_id, phone_id,
+                                             "sms", anisette))
+                            throw IpaError("[2FA-SMS] failed to request SMS");
+                        fprintf(stderr, "[2FA-SMS] SMS re-requested. Enter the code: ");
+                        fflush(stderr);
+                        std::getline(std::cin, smscode);
+                        while (!smscode.empty() &&
+                               (smscode.back()=='\r' || smscode.back()=='\n'))
+                            smscode.pop_back();
+                        if (smscode.empty()) throw AuthCodeRequired();
+                    }
+
+                    if (!do_phone_securitycode(fa_dsid, fa_tok, phone_id, phone_id,
+                                               "sms", smscode, anisette))
+                        throw IpaError("[2FA-SMS] code rejected");
+
+                    if (m_debug) fprintf(stderr, "[GSA] SMS 2FA confirmed — re-running SRP\n");
+                    return login(email, password, anisette, "__2fa_done__");
+                }
+
                 // Apple sends push automatically when SRP returns 409.
                 // No need for explicit GET /auth/verify/trusteddevice.
                 if (!sm.empty()) fprintf(stderr, "[2FA] %s\n", sm.c_str());
 
                 std::string code = authCode;
                 if (code.empty()) {
-                    fprintf(stderr, "Enter 2FA code: ");
+                    fprintf(stderr, "Enter 2FA code (push/SMS): ");
                     fflush(stderr);
                     std::getline(std::cin, code);
                     while (!code.empty() &&
@@ -437,6 +552,90 @@ bool GsaClient::do_2fa_validate(const std::string& dsid, const std::string& idms
         } catch (...) {}
     }
     return true;
+}
+
+// ── SMS/phone 2FA ────────────────────────────────────────────────────────────
+
+std::string GsaClient::fetch_phone_page(const std::string& dsid,
+                                        const std::string& idms_token,
+                                        const AnisetteData& anisette)
+{
+    auto hdrs = build_2fa_headers(anisette, dsid, idms_token);
+    // The auth landing page embeds a JSON blob ("boot_args") that contains
+    // direct.phoneNumberVerification.trustedPhoneNumber.id
+    const HttpResponse r = m_http.get("https://gsa.apple.com/auth", hdrs);
+    if (m_debug)
+        fprintf(stderr, "[GSA] gsa.apple.com/auth status=%d size=%zu\n",
+                r.statusCode, r.body.size());
+    if (r.statusCode != 200)
+        throw IpaError("gsa.apple.com/auth: HTTP " + std::to_string(r.statusCode));
+    return r.body;
+}
+
+bool GsaClient::do_phone_submit(const std::string& dsid,
+                                const std::string& idms_token,
+                                const std::string& phone_id,
+                                const std::string& phone_did,
+                                const std::string& mode,
+                                const AnisetteData& anisette)
+{
+    auto hdrs = build_2fa_headers(anisette, dsid, idms_token);
+    hdrs["Content-Type"] = "application/json";
+    hdrs["Accept"]       = "application/json";
+
+    const std::string body =
+        "{\"phoneNumber\":{\"id\":\"" + phone_id + "\"},\"mode\":\"" + mode + "\"}";
+
+    // idmsa route: explicitly asks Apple to send an SMS to this number.
+    const HttpResponse r = m_http.request(
+        "PUT", "https://idmsa.apple.com/appleauth/auth/verify/phone", body, hdrs);
+
+    if (m_debug)
+        fprintf(stderr, "[GSA] idmsa verify/phone PUT status=%d\n", r.statusCode);
+    return r.statusCode == 200 || r.statusCode == 204;
+}
+
+bool GsaClient::do_phone_securitycode(const std::string& dsid,
+                                      const std::string& idms_token,
+                                      const std::string& phone_id,
+                                      const std::string& phone_did,
+                                      const std::string& mode,
+                                      const std::string& code,
+                                      const AnisetteData& anisette)
+{
+    auto hdrs = build_2fa_headers(anisette, dsid, idms_token);
+    hdrs["Content-Type"] = "application/json";
+    hdrs["Accept"]       = "application/json";
+
+    const std::string body =
+        "{\"phoneNumber\":{\"id\":\"" + phone_id + "\"},"
+        "\"securityCode\":{\"code\":\"" + code + "\"},"
+        "\"mode\":\"" + mode + "\"}";
+
+    const HttpResponse r = m_http.post(
+        "https://gsa.apple.com/auth/verify/phone/securitycode", body, hdrs);
+
+    if (m_debug) {
+        fprintf(stderr, "[GSA] securitycode status=%d\n", r.statusCode);
+        for (auto& h : r.headers)
+            if (h.first == "X-Apple-DSID" || h.first == "x-apple-dsid")
+                fprintf(stderr, "[GSA] got %s -> success marker\n", h.first.c_str());
+    }
+    // Success marker per macless-haystack/pypush: 200 + X-Apple-DSID header.
+    bool ok = (r.statusCode == 200);
+    if (ok) {
+        bool has_dsid = false;
+        for (auto& h : r.headers) {
+            std::string low = h.first;
+            for (auto& ch : low) ch = (char)tolower((unsigned char)ch);
+            if (low == "x-apple-dsid") has_dsid = true;
+        }
+        ok = has_dsid;
+    } else {
+        fprintf(stderr, "[2FA-SMS] rejected (HTTP %d). Response:\n%s\n",
+                r.statusCode, r.body.c_str());
+    }
+    return ok;
 }
 
 PlistDict GsaClient::make_cpd(const AnisetteData& a)

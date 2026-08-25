@@ -1,3 +1,6 @@
+// Modified by lazyeel (https://github.com/lazyeel)
+// SPDX-License-Identifier: Apache-2.0
+
 // ipatool-cpp — C++ port of ipatool (https://github.com/majd/ipatool)
 //
 // Requires: libcurl, nlohmann/json, OpenSSL, minizip
@@ -405,6 +408,15 @@ static std::string get(const Args& a, const std::string& longName,
     return def;
 }
 
+// Override the storefront captured at login (e.g. 143441-1,32 for US) with
+// another storefront id, so apps restricted to specific country storefronts
+// can be purchased and downloaded. Accepts a numeric id ("143441") or a full
+// header value ("143441-1,32").
+static void apply_store_front_override(Account& acc, const Args& args) {
+    const std::string sf = get(args, "store-front", "");
+    if (!sf.empty()) acc.storeFront = sf;
+}
+
 // ── Commands ──────────────────────────────────────────────────────────────────
 
 // ── Output format ────────────────────────────────────────────────────────────
@@ -622,6 +634,7 @@ static void cmd_login(const Args& args) {
     std::string email      = get(args, "email",               "e");
     std::string password   = get(args, "password",            "p");
     std::string authCode   = get(args, "auth-code",           "a");
+    const bool useSms      = (get(args, "sms", "") == "true");
     std::string passphrase = get(args, "keychain-passphrase", "");
     bool interactive = is_tty();
 
@@ -656,7 +669,9 @@ static void cmd_login(const Args& args) {
         exit(1);
     }
 
-    // GSA login (SRP-6a); handles 2FA on first retry
+    // GSA login (SRP-6a); handles 2FA on first retry.
+    // --sms → interactive phone-number SMS sub-flow inside GsaClient::login
+    if (useSms && authCode.empty()) authCode = "__sms__";
     for (int attempt = 0; attempt < 2; ++attempt) {
         try {
             Account acc = store.login(email, password, anisette, authCode);
@@ -758,6 +773,7 @@ static void cmd_purchase(const Args& args) {
         std::cerr << "Not logged in.\n";
         exit(1);
     }
+    apply_store_front_override(acc, args);
 
     AppStore store(COOKIE_FILE);
     if (get(args, "debug") == "true") store.set_debug(true);
@@ -854,6 +870,7 @@ static void cmd_list_versions(const Args& args) {
         print_red_err(std::string("Error: ") + e.what() + "\n");
         exit(1);
     }
+    apply_store_front_override(acc, args);
 }
 
 static void cmd_get_version_metadata(const Args& args) {
@@ -931,6 +948,7 @@ static void cmd_download(const Args& args) {
         std::cerr << "Not logged in.\n";
         exit(1);
     }
+    apply_store_front_override(acc, args);
 
     AppStore store(COOKIE_FILE);
     if (get(args, "debug") == "true") store.set_debug(true);

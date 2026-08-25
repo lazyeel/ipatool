@@ -1,3 +1,6 @@
+// Modified by lazyeel (https://github.com/lazyeel)
+// SPDX-License-Identifier: Apache-2.0
+
 #include "protect.h"
 #include "aes.h"
 #include <cstring>
@@ -31,8 +34,13 @@ void secure_zero(void* ptr, size_t len) {
     SecureZeroMemory(ptr, len);
 #elif defined(__APPLE__)
     memset_s(ptr, len, 0, len);
-#else
+#elif defined(__linux__) && defined(__GLIBC__)
     explicit_bzero(ptr, len);
+#else
+    // Android (Bionic) and other libcs: no explicit_bzero guarantee. A write
+    // through a volatile pointer cannot be optimized out.
+    volatile unsigned char* p = (volatile unsigned char*)ptr;
+    while (len--) *p++ = 0;
 #endif
 }
 

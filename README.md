@@ -1,377 +1,134 @@
-# ipatool-cpp
+# ipatool-adi
 
-A C++17 port of [ipatool](https://github.com/majd/ipatool) — a command-line tool for downloading iOS app packages from the App Store.  
-Uses **libcurl** for networking. Builds on **Windows (VS 2022)**, Linux, and macOS with optional fully static binaries.
+Extended C++ App Store client with an embedded standalone Anisette engine for Linux/Android (Termux) and SMS two-factor login. Zero external server dependencies.
 
----
+A hard fork of [Sorvigolova/ipatool](https://github.com/Sorvigolova/ipatool) (itself a C++ port of [majd/ipatool](https://github.com/majd/ipatool)).
 
-## Security model
-
-ipatool-cpp protects your Apple ID credentials using machine-bound encryption — the account file is tied to the machine it was created on and cannot be decrypted elsewhere.
-
-**Account file encryption:**
-- Credentials are always encrypted with AES-256-GCM — plaintext storage is not supported
-- File format version `0x03` — older formats are rejected with a clear re-login message
-- Encryption key: `PBKDF2-SHA256(machine_id + "nice_token_is_nice" + passphrase, random_salt, 100000, 32)`
-- `passphrase` is `""` if `--keychain-passphrase` is not provided — machine binding alone is sufficient
-- Copying the account file to another machine produces an unreadable file
-
-**Machine ID derivation (per platform):**
-- **Windows**: `SHA256(ProductId + MachineGuid)` — from `HKLM\SOFTWARE\Microsoft\Windows NT\CurrentVersion` and `HKLM\SOFTWARE\Microsoft\Cryptography`. Inspired by how iTunes binds its own SC Info store to the Windows installation.
-- **Linux**: `SHA256(machine-id + product_uuid)` — from `/etc/machine-id` and `/sys/class/dmi/id/product_uuid`
-- **macOS**: `SHA256(IOPlatformSerialNumber + IOPlatformUUID)` — via IOKit
-
-**In-memory protection:**
-- Sensitive fields (`passwordToken`, `password`) are AES-256-GCM encrypted in RAM at all times using `SecureString`
-- The in-memory key is **never stored** — it is derived fresh on every encrypt/decrypt call: `SHA256(get_machine_id() + "nice_key_is_nice" + passphrase)`
-- After each use the key is immediately wiped via `secure_zero()` — a cross-platform wrapper (`SecureZeroMemory` on Windows, `memset_s` on macOS, `explicit_bzero` on Linux)
-- Plaintext exists only for microseconds during HTTP requests, then wiped
-- Only `g_passphrase` (the user-provided passphrase, which the user already knows) is kept in memory
-
-**`--keychain-passphrase`:**
-- Optional second factor on top of machine binding
-- Use the same value on every command after login
-- Without it, machine binding alone protects the account file
+**Current status:** the ADI anisette engine works on Termux (Android arm64). See [STATUS.md](STATUS.md) for the full state, protocol invariants, and what currently blocks App Store downloads for every third-party client.
 
 ---
 
-## Building on Windows (Visual Studio 2022)
+## Branches
 
-### Step 1 — Install vcpkg (once)
+| Branch | Contents | Use it when |
+|---|---|---|
+| [`main`](https://github.com/lazyeel/ipatool/tree/main) | Upstream Sorvigolova code + SMS 2FA + `--store-front` override + Termux/Linux/NixOS build support. Anisette comes from public SideStore-style servers or the native MS Store iCloud provider on Windows. | You want the stable tool without the experimental engine |
+| [`adi-engine`](https://github.com/lazyeel/ipatool/tree/adi-engine) | Everything in `main`, plus the embedded ADI anisette engine: Apple libraries load in-process, provisioning runs locally, zero third-party servers. Also carries `STATUS.md` with the full research log. | You want self-contained anisette generation on your own device |
+| [`sap-engine`](https://github.com/lazyeel/ipatool/tree/sap-engine) | Everything in `adi-engine`, plus FairPlay SAP and FPDI reverse engineering: JNI wrapper mapping, error code documentation, server endpoint discovery, test harness. Research branch. | You want to explore the FairPlay SAP protocol |
 
-```cmd
-git clone https://github.com/microsoft/vcpkg C:\vcpkg
-C:\vcpkg\bootstrap-vcpkg.bat
-setx VCPKG_ROOT C:\vcpkg
-```
+All branches share the same platform support (Termux, Linux x86_64/aarch64, NixOS), the same SMS 2FA flow, and the same upstream feature set. Each branch is a strict superset of the one above it.
 
-Restart your terminal after setting the variable.
+## Differences from Sorvigolova/ipatool
 
-### Step 2a — Dynamic build (default)
+| Area | Upstream | This fork |
+|---|---|---|
+| Anisette on Linux/Termux | Public SideStore-style servers only (external dependency, availability not guaranteed) | Native in-process ADI engine (`adi-engine` branch): loads Apple's classic libraries from Apple Music 2.9.0 and provisions against GrandSlam locally |
+| SMS two-factor login | Absent | `--sms`: interactive flow for accounts without trusted Apple devices (phone list, code request, code entry) |
+| `--store-front` | Absent | Override the storefront for purchase/download/list-versions |
+| Store error reporting | Bare "failed" messages | Surfaces `failureType`, `customerMessage` and the full response plist |
+| Login failure handling | Half-authenticated state could be saved | iTunes auth failure is fatal |
+| Packaging | Windows-centric | Nix flake + NixOS module + `default.nix`, CI workflow, Termux build script |
 
-```cmd
-C:\vcpkg\vcpkg install curl:x64-windows nlohmann-json:x64-windows minizip:x64-windows openssl:x64-windows
+Everything upstream has is preserved: machine-bound credential encryption, static builds on all three desktop platforms, the full command set (`auth`, `search`, `purchase`, `download`, `list-versions`).
 
-cmake -B build -G "Visual Studio 17 2022" -A x64 ^
-      -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake
-cmake --build build --config Release
-```
+## The ADI anisette engine (`adi-engine` branch)
 
-Output: `build\Release\ipatool.exe`  
-Requires `MSVCP140.dll` / `VCRUNTIME140.dll` on the target machine (included with the VS redistributable).
+The engine loads Apple's classic libraries from Apple Music for Android 2.9.0 (`libstoreservicescore.so` plus dependencies), provisions a virtual device against GrandSlam, and mints `X-Apple-I-MD` / `X-Apple-I-MD-M` pairs in-process. No JVM, no emulator, no Docker, no third-party servers.
 
-### Step 2b — Fully static build (no DLL dependencies)
+The Apple binaries are proprietary and are **not stored in this repo**. `get_libs.sh` downloads them, extracts the required set and verifies each library against expected symbol markers before use.
 
-```cmd
-C:\vcpkg\vcpkg install curl:x64-windows-static nlohmann-json:x64-windows-static minizip:x64-windows-static openssl:x64-windows-static
-
-rmdir /s /q build
-
-cmake -B build -G "Visual Studio 17 2022" -A x64 ^
-      -DCMAKE_TOOLCHAIN_FILE=C:\vcpkg\scripts\buildsystems\vcpkg.cmake ^
-      -DSTATIC_BUILD=ON
-cmake --build build --config Release
-```
-
-Output: `build\Release\ipatool.exe`
-
-The resulting binary only depends on permanent Windows system DLLs (`KERNEL32.dll`, `WS2_32.dll`, `CRYPT32.dll`, `ADVAPI32.dll`, etc.) — no redistributables, no extra DLLs needed. Runs on any Windows machine.
-
-> **Note:** Always delete `build\` before switching between dynamic and static builds.
-
-### Step 3 (alternative) — Open in Visual Studio 2022 directly
-
-1. **File → Open → Folder** — select the project folder
-2. VS detects `CMakeLists.txt` automatically
-3. Go to **Project → CMake Settings**
-4. Add CMake variable: `CMAKE_TOOLCHAIN_FILE` = `C:\vcpkg\scripts\buildsystems\vcpkg.cmake`
-5. Save, let CMake configure, then **Build → Build All**
-
----
-
-## Building on Linux
-
-### Dynamic build
-
-```sh
-sudo apt install libcurl4-openssl-dev nlohmann-json3-dev libminizip-dev libssl-dev
-
-cmake -B build -DCMAKE_BUILD_TYPE=Release
-cmake --build build
-# Output: build/ipatool
-```
-
-### Fully static build
-
-```sh
-sudo apt install libssl-dev libminizip-dev zlib1g-dev
-
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DSTATIC_BUILD=ON
-cmake --build build
-strip build/ipatool
-# Output: build/ipatool — fully statically linked
-```
-
-The static build compiles curl from source (HTTPS-only) via CMake `ExternalProject_Add`.  
-Only `libc.so.6` remains dynamic — standard and expected on Linux.
-
-Verify with `ldd build/ipatool` — should show only `linux-vdso.so.1`, `libc.so.6`, `ld-linux-x86-64.so.2`.
-
----
-
-## Building on macOS
-
-```sh
-brew install curl nlohmann-json minizip openssl
-
-cmake -B build -DCMAKE_BUILD_TYPE=Release \
-      -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3) \
-      -DOPENSSL_USE_STATIC_LIBS=TRUE
-cmake --build build
-```
-
-IOKit and CoreFoundation are built into macOS — no extra dependencies needed for machine ID.
-
-### Static build on macOS
-
-```sh
-brew install openssl@3 minizip nlohmann-json
-
-cmake -B build -DCMAKE_BUILD_TYPE=Release -DSTATIC_BUILD=ON \
-      -DOPENSSL_ROOT_DIR=$(brew --prefix openssl@3)
-cmake --build build
-```
-
-CMake downloads and builds a minimal curl from source (HTTPS only — no LDAP, SSH,
-HTTP/2, HTTP/3, Brotli, Zstd, GSSAPI) and statically links it together with
-OpenSSL and minizip. A handful of system frameworks (`IOKit`, `CoreFoundation`,
-`SystemConfiguration`, `CoreServices`) and `libz` remain dynamically linked —
-these ship with every Mac, so this doesn't affect portability. Run
-`otool -L build/ipatool` afterward to confirm: you should see only those system
-libraries, no `libcurl`/`libssl`/`libcrypto`/`libminizip` dylibs.
-
-**Minimum macOS version**: defaults to Catalina (10.15) — the project uses
-`std::filesystem` throughout, which only got reliable libc++ support starting
-with that release, so there's no point targeting anything older. The bundled
-curl build picks this up automatically (`-mmacosx-version-min`), so the
-resulting binary should run on 10.15+ without the "object file was built for
-a newer macOS version" linker warnings you'd get if curl's separate autotools
-build silently defaulted to whatever SDK version your Mac happens to have.
-Override it explicitly if needed: `-DCMAKE_OSX_DEPLOYMENT_TARGET=11.0`.
-
-Verify what actually got baked in:
-```sh
-otool -l build/ipatool | grep -A3 "LC_BUILD_VERSION\|LC_VERSION_MIN_MACOSX"
-```
-
----
+**The engine currently runs on Termux (Android arm64) only.** On x86_64 Linux the arm64 libraries cannot load; builds succeed there and the tool falls back to public servers automatically. A native x86_64 port would require a custom ELF loader with Bionic symbol shims (see STATUS.md, "Platform notes").
 
 ## Usage
 
+### Termux quick start (`adi-engine` branch)
+
+```bash
+pkg install -y clang cmake make openssl libcurl zlib nlohmann-json libminizip python
+git clone -b adi-engine https://github.com/lazyeel/ipatool.git && cd ipatool
+./get_libs.sh          # fetch Apple libraries (~68 MB APK, verified)
+bash build_termux.sh   # builds ./ipatool
 ```
-ipatool [global flags] <command> [flags]
 
-Commands:
-  auth login            Authenticate with the App Store
-  auth info             Show currently saved account info
-  auth revoke           Delete saved credentials
-  search                Search for apps on the App Store
-  purchase              Acquire a free app license
-  download              Download an app IPA
-  list-versions         List available versions of an app
-  get-version-metadata  Get metadata for a specific app version
+### Verify the ADI engine standalone
 
-Global flags:
-  --format text|json        Output format: human-readable text (default) or JSON
-  --keychain-passphrase     Optional additional passphrase for account file encryption
-  --debug                   Print raw server responses for troubleshooting
-
-download flags:
-  -b / --bundle-id          Bundle identifier of the app
-  -i / --app-id             Numeric App Store ID (skips iTunes lookup)
-  -o / --output             Output file or directory path
-  --external-version-id     Download a specific older version
-  --purchase                Acquire license automatically if needed, then download
+```bash
+clang adi_test.c -O2 -Wall -o adi_test -ldl -lcurl -lcrypto -Wl,-rpath,'$ORIGIN/libs-classic'
+./adi_test ./libs-classic
 ```
+
+First run provisions a virtual device (~10 s) and prints one `X-Apple-I-MD` / `X-Apple-I-MD-M` pair. Later runs are instant: provisioning state persists in `./adi-data/`.
+
+### Log in with SMS 2FA (both branches)
+
+```bash
+./ipatool auth login -e you@example.com --sms
+# -> prints trusted phone numbers, asks which to use
+# -> sends the SMS, prompts for the received code
+```
+
+On the `adi-engine` branch, anisette headers come from the embedded engine:
+
+```text
+[anisette] source: native ADI engine
+```
+
+If `libs-classic/` is missing or cannot load, the tool prints
+`[anisette] source: public servers (fallback)` and continues.
+
+### Purchase and download
+
+```bash
+./ipatool purchase -b com.example.app --store-front 143441
+./ipatool download -b com.example.app --store-front 143441 -o app.ipa
+```
+
+See `--help` for the full flag set, including `--keychain-passphrase`.
+
+### NixOS / Nix
+
+```bash
+nix run github:lazyeel/ipatool/adi-engine -- auth info     # adi-engine branch
+nix run github:lazyeel/ipatool/main      -- auth info      # main branch
+nix build github:lazyeel/ipatool/adi-engine
+```
+
+A NixOS module (`programs.ipatool-cpp-sms.enable`) ships in `nixos-module.nix`; see the module header for overlay and home-manager usage.
+
+## Current status and known limitation
+
+App Store **downloads are currently blocked by Apple server-side** for all third-party clients (August 2026): commerce authentication now demands a SAP/Private Access Token signature that no open stack can produce without genuine Apple hardware. This affects Sorvigolova's upstream, majd's original, iMazing, iDescriptor and this fork equally.
+
+Authentication (GSA SRP + SMS) works, anisette generation works natively, and the FairPlay SAP subsystem has been successfully initialized on Termux: core functions (`LoadLibraryWithPath`, `SetAndroidID`, `GetGUID`, `SAPInit`, `InitContext`) all pass. The remaining blocker is `FPDICreate`, which requires a subscription bag from Apple's servers that cannot be obtained without Secure Enclave attestation. Full analysis including error code map, function signatures, and server endpoints: [STATUS.md](STATUS.md).
+
+## License
+
+This project distribution and its native engine components are licensed under the **Apache License, Version 2.0 with a NOTICE file**.
+
+* All native ARM64 Bionic ADI/Anisette loader implementations, FairPlay protocol research, SMS 2FA subsystems, and new components authored by **lazyeel** are licensed under the **Apache License, Version 2.0**.
+* Upstream C++ codebase components inherited from **Sorvigolova/ipatool** and original protocol implementations from **majd/ipatool** remain licensed under their original **MIT License** (see [`LICENSE-MIT`](LICENSE-MIT)).
+
+See [`LICENSE`](LICENSE) for the full Apache-2.0 terms, [`LICENSE-MIT`](LICENSE-MIT) for upstream terms, and [`NOTICE`](NOTICE) for mandatory downstream attribution requirements.
+
+### Attribution & Downstream Use
+
+Both open-source and commercial/proprietary projects are welcome to use, adapt, and embed this codebase. Pursuant to **Section 4(d) of the Apache License 2.0**, any distribution of derivative works (in source or binary form) must reproduce the attribution notices defined in [`NOTICE`](NOTICE) within your product's About dialog, third-party legal notices, or documentation.
+
+Suggested attribution:
+> *"Native ADI engine and FairPlay Bionic loader implementation based on research and code by lazyeel (https://github.com/lazyeel/ipatool)."*
 
 ---
 
-### Commands
+# Upstream documentation (Sorvigolova/ipatool)
 
-#### `auth login`
-```
-ipatool auth login -e EMAIL -p PASSWORD [--auth-code CODE] [--keychain-passphrase PASSPHRASE]
-```
-Authenticates with the App Store and saves credentials to `~/.ipatool/account`.
+The sections below document features inherited unchanged from upstream.
 
-- Credentials are always encrypted — bound to the current machine
-- If the account has 2FA enabled and `--auth-code` is omitted, you will be prompted interactively
-- `--keychain-passphrase` adds an optional second factor on top of machine binding
 
-#### `auth info`
-```
-ipatool auth info [--keychain-passphrase PASSPHRASE]
-```
-Displays the name and email of the currently saved account.
+## Acknowledgements
 
-#### `auth revoke`
-```
-ipatool auth revoke
-```
-Deletes the saved credentials file (`~/.ipatool/account`).
-
-#### `search`
-```
-ipatool search <term> [-l LIMIT] [--keychain-passphrase PASSPHRASE]
-```
-Searches the App Store. Default limit is 5.
-
-#### `purchase`
-```
-ipatool purchase (-b BUNDLE_ID | -i APP_ID) [--keychain-passphrase PASSPHRASE]
-```
-Acquires a free license for an app. Must be run once before downloading any app not already in your library.
-
-- If the app is already in your library, this exits with an error (`license already exists`) — that's expected, just proceed to `download`
-
-#### `download`
-```
-ipatool download (-b BUNDLE_ID | -i APP_ID) [-o OUTPUT] [--external-version-id ID] [--purchase] [--keychain-passphrase PASSPHRASE]
-```
-Downloads an app as an `.ipa` file.
-
-- `-b` performs an iTunes lookup first; `-i` skips it and uses the numeric App Store ID directly
-- `--external-version-id` downloads a specific older version (get IDs from `list-versions`)
-- `-o` can be a file path or a directory; defaults to the current directory
-- `--purchase` automatically acquires the app license if needed, then downloads
-- Output filename format: `{bundleID}_{appID}_{version}.ipa`
-- A progress bar is shown on TTY: `Downloading:  42% |          | (50/119 MB, 8.3 MB/s)`
-- Download is resumable — if interrupted, re-running the same command continues from where it stopped
-- The IPA is patched to match the iTunes format:
-  - `iTunesMetadata.plist` — written to zip root with full account info, purchase date, and `com.apple.iTunesStore.downloadInfo`
-  - `iTunesArtwork` — app icon written to zip root
-  - Sinf DRM token injected into `Payload/{App}.app/SC_Info/`
-
-#### `list-versions`
-```
-ipatool list-versions (-b BUNDLE_ID | -i APP_ID) [--keychain-passphrase PASSPHRASE]
-```
-Returns all available version IDs for an app.
-
-#### `get-version-metadata`
-```
-ipatool get-version-metadata (-b BUNDLE_ID | -i APP_ID) --external-version-id ID [--keychain-passphrase PASSPHRASE]
-```
-Returns the display version string and release date for a specific version ID.
-
----
-
-## Typical workflow
-
-```sh
-# 1. Log in (credentials encrypted with machine binding)
-ipatool auth login -e you@example.com -p yourpassword
-
-# 1b. With optional extra passphrase
-ipatool auth login -e you@example.com -p yourpassword --keychain-passphrase mysecret
-
-# 2. Check saved account
-ipatool auth info
-
-# 3. Search for an app
-ipatool search "minecraft" -l 5
-
-# 4a. Acquire the license separately, then download
-ipatool purchase -b com.mojang.minecraft-edu
-ipatool download -b com.mojang.minecraft-edu -o ~/Downloads
-
-# 4b. Or by numeric app ID
-ipatool purchase -i 1440285423
-ipatool download -i 1440285423 -o ~/Downloads
-
-# 4b. Or acquire license and download in one step
-ipatool download -b com.mojang.minecraft-edu --purchase -o ~/Downloads
-
-# 5. Download by numeric app ID (skips the iTunes lookup)
-ipatool download -i 1440285423 --purchase -o ~/Downloads
-
-# 6. List available older versions
-ipatool list-versions -b com.mojang.minecraft-edu
-
-# 7. Download a specific older version
-ipatool download -b com.mojang.minecraft-edu --external-version-id 123456789 -o ~/Downloads
-
-# 8. Revoke saved credentials
-ipatool auth revoke
-```
-
----
-
-## Output formats
-
-By default output uses human-readable text with colors (when stdout is a TTY):
-
-```
-10:32:15 INF name=John Appleseed email=john@example.com success=true
-```
-
-With `--format json`:
-```json
-{"name":"John Appleseed","email":"john@example.com","success":true}
-```
-
-Colors are automatically disabled when output is piped or redirected.  
-On Windows 7/8 the legacy Console API is used for colors; on Windows 10+ ANSI escape codes are used.
-
----
-
-## Stored files
-
-| File | Contents |
-|------|----------|
-| `~/.ipatool/account` | Apple ID credentials — AES-256-GCM encrypted, machine-bound (format v3) |
-| `~/.ipatool/cookies` | Session cookies (libcurl cookie file, required for download) |
-
-On Windows these are in `%USERPROFILE%\.ipatool\`.
-
-The account file is always encrypted. If you copy it to another machine or reinstall the OS, it cannot be decrypted — run `auth login` again on the new machine.
-
----
-
-## Notes
-
-- If you move to a new machine or reinstall the OS, run `auth revoke` + `auth login` again
-- Paid apps are not supported — only free apps and apps already purchased on your account
-- `purchase` must be run before `download` for any app not in your library
-- `--keychain-passphrase` is optional but adds a second factor — use the same value on every command
-- Older versions obtained via `--external-version-id` may no longer be signed by Apple and might not install
-- Session token expiry is handled automatically — the tool re-authenticates silently using stored credentials. If 2FA is required, you will be prompted once
-
----
-
-## File layout
-
-```
-ipatool-cpp/
-├── main.cpp           ← CLI entry point, arg parsing, all commands, account file encryption
-├── ipatool.h           ← Shared types: Account, ProgressCb, IpaError hierarchy, Store constants
-├── protect.h/.cpp      ← In-memory protection: secure_zero, SecureString, passphrase state
-├── appstore.h/.cpp     ← App Store API (login, search, purchase, download), App/Sinf types,
-│                          storefront table, iTunes Search/Lookup JSON parsing
-├── gsa.h/.cpp          ← Grand Slam Authentication (SRP-6a login, 2FA)
-├── anisette.h/.cpp     ← Anisette data: local binary (Windows) / public servers (macOS, Linux)
-├── hwid.h/.cpp         ← Machine ID derivation (Windows registry, Linux /etc, macOS IOKit)
-├── http_client.h/.cpp  ← libcurl wrapper (GET, POST, resumable download, cookie file)
-├── plist.h/.cpp        ← Apple plist XML+binary encoder/decoder (no external deps)
-├── bignum.h/.cpp       ← BIGNUM free-function wrappers
-├── sha2.h/.cpp         ← SHA-256 + HMAC-SHA256 + PBKDF2
-├── aes.h/.cpp          ← AES-GCM + AES-CBC, all modes in one place
-├── srp.h/.cpp          ← SRP-6a math for GSA (Apple's "s2k" x derivation)
-├── CMakeLists.txt      ← Cross-platform CMake build (vcpkg + static support)
-└── README.md
-```
-
-`Account` lives in `ipatool.h` (not `appstore.h`) because `gsa.h`/`gsa.cpp` needs it too —
-it's the result of the GSA login flow, not an App Store-specific concept. `App` and `Sinf`,
-on the other hand, only ever appear in search/lookup/download results, so they live in
-`appstore.h` alongside the code that produces and consumes them.
+* **[Sorvigolova/ipatool](https://github.com/Sorvigolova/ipatool):** the C++ codebase this fork builds on, and the upstream documentation reproduced below.
+* **[majd/ipatool](https://github.com/majd/ipatool):** the original tool and protocol implementation.
+* **[Dadoum/Provision](https://github.com/Dadoum/Provision):** mapped out the GrandSlam ADI provisioning protocol and the roles of the obfuscated exports in `libstoreservicescore.so`. Our C++ engine follows the approach documented there.
+* **[SideStore](https://github.com/SideStore):** the `DS_ID = -2` anonymous-machine semantics and anisette server design ([omnisette](https://github.com/SideStore/omnisette)).
+* **Apple:** the ADI libraries themselves come from the Apple Music for Android package and remain proprietary; they are downloaded at runtime by `get_libs.sh`, never redistributed here.
+* **[thegaiko](https://github.com/thegaiko) and [kda2495](https://github.com/kda2495):** reverse-engineering notes and field reports on the 2026 commerce gate (see `STATUS.md`, *"The wall"*).

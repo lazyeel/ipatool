@@ -1,0 +1,16 @@
+
+# Apple proprietary binaries (never commit; fetch via get_libs.sh)
+*.so
+libs/
+libs-classic/
+apple_music*.xapk
+am_x/
+adi-data/
+adi_identifier
+
+# nix build output
+result
+result-*
+
+# downloaded APKs
+am_old/

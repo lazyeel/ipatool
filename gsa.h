@@ -1,3 +1,6 @@
+// Modified by lazyeel (https://github.com/lazyeel)
+// SPDX-License-Identifier: Apache-2.0
+
 #pragma once
 // gsa.h — Grand Slam Authentication (GSA) for Apple ID
 //
@@ -103,6 +106,31 @@ private:
     bool do_2fa_validate(const std::string& dsid, const std::string& idms_token,
                          const std::string& code,
                          const AnisetteData& anisette);
+
+    // ── SMS/phone 2FA (accounts with no trusted Apple devices) ──
+    // GET https://gsa.apple.com/auth — HTML page whose boot_args JSON carries
+    // direct.phoneNumberVerification.trustedPhoneNumber.id
+    std::string fetch_phone_page(const std::string& dsid,
+                                 const std::string& idms_token,
+                                 const AnisetteData& anisette);
+
+    // PUT https://idmsa.apple.com/appleauth/auth/verify/phone — ask for an SMS
+    bool do_phone_submit(const std::string& dsid,
+                         const std::string& idms_token,
+                         const std::string& phone_id,
+                         const std::string& phone_did,
+                         const std::string& mode,
+                         const AnisetteData& anisette);
+
+    // POST https://gsa.apple.com/auth/verify/phone/securitycode — submit code.
+    // Success marker: HTTP 200 + X-Apple-DSID response header.
+    bool do_phone_securitycode(const std::string& dsid,
+                               const std::string& idms_token,
+                               const std::string& phone_id,
+                               const std::string& phone_did,
+                               const std::string& mode,
+                               const std::string& code,
+                               const AnisetteData& anisette);
 
     // cpd — anisette data duplicated inside the plist body.
     // Apple returns HTTP 200 / Content-Length: 0 (silent reject)

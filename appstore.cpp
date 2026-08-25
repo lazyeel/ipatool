@@ -1,3 +1,7 @@
+// Modified by lazyeel (https://github.com/lazyeel)
+// SPDX-License-Identifier: Apache-2.0
+
+#include <unistd.h>
 #include "appstore.h"
 #include <set>
 #include <sstream>
@@ -161,11 +165,10 @@ Account AppStore::login(const std::string&  email,
     // PET expires in 5 min — exchange it for iTunes auth cookies immediately,
     // while it is still fresh. Cookies go into COOKIE_FILE for later requests.
     const std::string guid = get_guid();
-    try {
-        do_itunes_auth(acc, anisette, guid);
-    } catch (const std::exception& e) {
-        fprintf(stderr, "[WARN] iTunes auth failed: %s\n", e.what());
-    }
+    // Without this step there is no passwordToken and every store operation
+    // will be rejected with a mirrored payload. Fail loudly instead of
+    // saving a half-authenticated account.
+    do_itunes_auth(acc, anisette, guid);
     return acc;
 }
 
@@ -305,7 +308,14 @@ AppStore::DownloadOutput AppStore::download(const Account& acc,
         throw IpaError("received error: " + failureType);
 
     auto songList = dict_arr(data, "songList");
-    if (songList.empty()) throw IpaError("invalid response: empty songList");
+    if (songList.empty()) {
+        fprintf(stderr, "[download] empty songList. failureType='%s' customerMessage='%s'\n"
+                        "[download] response body:\n%s\n",
+                dict_str(data, "failureType").c_str(),
+                dict_str(data, "customerMessage").c_str(),
+                vsRes.body.c_str());
+        throw IpaError("invalid response: empty songList");
+    }
 
     auto& itemVal = songList[0];
     if (!itemVal.isDict()) throw IpaError("invalid response: bad songList item");
@@ -404,7 +414,12 @@ AppStore::ListVersionsOutput AppStore::list_versions(const Account& acc, const A
         throw IpaError("received error: " + failureType);
 
     auto songList = dict_arr(data, "songList");
-    if (songList.empty()) throw IpaError("invalid response: empty songList");
+    if (songList.empty()) {
+        fprintf(stderr, "[download] empty songList. failureType='%s' customerMessage='%s'\n",
+                dict_str(data, "failureType").c_str(),
+                dict_str(data, "customerMessage").c_str());
+        throw IpaError("invalid response: empty songList");
+    }
     auto& itemVal = songList[0];
     if (!itemVal.isDict()) throw IpaError("invalid response: bad songList item");
     const PlistDict& item = itemVal.dictVal;
@@ -450,7 +465,12 @@ AppStore::GetVersionMetadataOutput AppStore::get_version_metadata(const Account&
         throw IpaError("received error: " + failureType);
 
     auto songList = dict_arr(data, "songList");
-    if (songList.empty()) throw IpaError("invalid response: empty songList");
+    if (songList.empty()) {
+        fprintf(stderr, "[download] empty songList. failureType='%s' customerMessage='%s'\n",
+                dict_str(data, "failureType").c_str(),
+                dict_str(data, "customerMessage").c_str());
+        throw IpaError("invalid response: empty songList");
+    }
     auto& itemVal = songList[0];
     if (!itemVal.isDict()) throw IpaError("invalid response: bad songList item");
     const PlistDict& item = itemVal.dictVal;
@@ -810,8 +830,14 @@ void AppStore::do_purchase(const Account& acc, const App& app,
     if (!failureType.empty() && failureType != FAILURE_ALREADY_PURCHASED)
                                                           throw IpaError("something went wrong");
     if (failureType == FAILURE_ALREADY_PURCHASED)         throw AlreadyPurchased();
-    if (jingleDocType != "purchaseSuccess" || status != 0)
+    if (jingleDocType != "purchaseSuccess" || status != 0) {
+        fprintf(stderr, "[purchase] status=%d jingle=%s failureType='%s'\n"
+                        "[purchase] customerMessage: %s\n"
+                        "[purchase] response body:\n%s\n",
+                (int)status, jingleDocType.c_str(), failureType.c_str(),
+                customerMessage.c_str(), res.body.c_str());
         throw IpaError("failed to purchase app");
+    }
 }
 
 // ── ZIP patching ──────────────────────────────────────────────────────────

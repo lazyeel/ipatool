@@ -1,3 +1,6 @@
+# Modified by lazyeel (https://github.com/lazyeel)
+# SPDX-License-Identifier: Apache-2.0
+
 cmake_minimum_required(VERSION 3.20)
 
 # ── macOS deployment target ────────────────────────────────────────────────────
@@ -364,6 +367,15 @@ if(STATIC_BUILD AND NOT WIN32 AND NOT APPLE)
         set(minizip_FOUND FALSE)  # don't also link the dynamic minizip::minizip target below
     endif()
     list(APPEND STATIC_LINK_LIBS ${ZLIB_STATIC})
+
+    # Debian/Ubuntu static libcrypto.a is built with zstd support
+    # (bio_zstd.o) → needs libzstd at link time.
+    find_library(ZSTD_STATIC NAMES libzstd.a
+                 PATHS /usr/lib/x86_64-linux-gnu)
+    if(ZSTD_STATIC)
+        message(STATUS "Static zstd: ${ZSTD_STATIC}")
+        list(APPEND STATIC_LINK_LIBS ${ZSTD_STATIC})
+    endif()
 endif()
 
 if(STATIC_BUILD AND APPLE)
