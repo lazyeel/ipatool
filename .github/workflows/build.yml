@@ -22,7 +22,9 @@ jobs:
           cmake -B build-static -DCMAKE_BUILD_TYPE=Release -DSTATIC_BUILD=ON
           cmake --build build-static -j$(nproc)
       - name: Smoke test
-        run: ./build-static/ipatool --help | head -5
+        run: |
+          set -o pipefail
+          ./build-static/ipatool --help | head -5
       - name: Package
         run: |
           mkdir -p dist
