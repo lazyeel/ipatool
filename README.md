@@ -103,10 +103,9 @@ Authentication (GSA SRP + SMS) works, anisette generation works natively, and th
 
 ## License
 
-This project distribution and its native engine components are licensed under the **Apache License, Version 2.0 with a NOTICE file**.
-
-* All native ARM64 Bionic ADI/Anisette loader implementations, StoreServices/FPDI protocol research, SMS 2FA subsystems, and new components authored by **lazyeel** are licensed under the **Apache License, Version 2.0**
-* Upstream C++ codebase components inherited from **Sorvigolova/ipatool** and original protocol implementations from **majd/ipatool** remain licensed under their original **MIT License** (see [`LICENSE-MIT`](LICENSE-MIT)).
+* **Code & Native Engine:** All native ARM64 Bionic ADI/Anisette loader implementations, StoreServices/FPDI protocol research tooling, SMS 2FA subsystems, and C++/Python code authored by **lazyeel** are licensed under the **[Apache License, Version 2.0](LICENSE)** with a **[`NOTICE`](NOTICE)** file.
+* **Research & Documentation:** The reverse-engineering documentation, protocol invariant analysis, architectural write-ups, and research authored by **lazyeel** are licensed under the **[Creative Commons Attribution 4.0 International License (CC BY 4.0)](https://creativecommons.org/licenses/by/4.0/)**.
+* **Upstream Code & Docs:** Inherited C++ codebase components and upstream documentation from **[Sorvigolova/ipatool](https://github.com/Sorvigolova/ipatool)** and **[majd/ipatool](https://github.com/majd/ipatool)** remain licensed under their original **[MIT License](LICENSE-MIT)**.
 
 See [`LICENSE`](LICENSE) for the full Apache-2.0 terms, [`LICENSE-MIT`](LICENSE-MIT) for upstream terms, and [`NOTICE`](NOTICE) for mandatory downstream attribution requirements.
 
@@ -115,7 +114,7 @@ See [`LICENSE`](LICENSE) for the full Apache-2.0 terms, [`LICENSE-MIT`](LICENSE-
 Both open-source and commercial/proprietary projects are welcome to use, adapt, and embed this codebase. Pursuant to **Section 4(d) of the Apache License 2.0**, any distribution of derivative works (in source or binary form) must reproduce the attribution notices defined in [`NOTICE`](NOTICE) within your product's About dialog, third-party legal notices, or documentation.
 
 Suggested attribution:
-> *"Native ADI engine and FairPlay Bionic loader implementation based on research and code by lazyeel (https://github.com/lazyeel/ipatool)."*
+> *"Native ADI engine and Bionic client services implementation based on research and code by lazyeel (https://github.com/lazyeel/ipatool)."*
 
 ---
 
