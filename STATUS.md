@@ -268,7 +268,7 @@ The protocol is a multi-round server exchange:
 | `sap_test.c` | FairPlay SAP/FPDI harness (sap-engine branch only) |
 | `tools/fpmap.py` | JNI wrapper to internal worker address mapper (sap-engine only) |
 | `tools/sap_trace.py` | disassembles individual JNI wrappers, recovers BL targets and ABI (sap-engine only) |
-| `tools/check_corefp.py` | verifies libCoreFP.so export table against expected symbols (sap-engine only) |
+| `tools/check_exports.py` | preflight gate: verifies the full FairPlay SAP/FPDI export topology (20 SAP workers in libstoreapi.so, 7 FPDI workers in libFPDIFor3P.so, dependency edge, libCoreFP.so fingerprint) before any dlsym (sap-engine only) |
 
 ## Platform notes
 
