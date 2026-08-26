@@ -24,13 +24,11 @@
 set -u
 cd "$(dirname "$0")"
 
-# Android/Termux: /tmp is usually inaccessible; mktemp honours $TMPDIR
-# (Termux sets it to $PREFIX/tmp). Fall back to a dir under $HOME.
-VT_TMP="$(mktemp -d 2>/dev/null || true)"
-if [ -z "${VT_TMP:-}" ] || [ ! -d "$VT_TMP" ] || [ ! -w "$VT_TMP" ]; then
-    VT_TMP="$HOME/.ipatool-verify-tmp"
-    mkdir -p "$VT_TMP" || { echo "FATAL: no writable temp dir"; exit 1; }
-fi
+# Android/Termux: the system /tmp is closed off, so scratch logs live in
+# ./tmp/ inside the repo itself (gitignored). Deterministic path — easy
+# to find after the run.
+VT_TMP="$(pwd)/tmp"
+mkdir -p "$VT_TMP" || { echo "FATAL: cannot create $VT_TMP"; exit 1; }
 echo "work logs: $VT_TMP"
 
 PASS=0; FAIL=0; SKIP=0
