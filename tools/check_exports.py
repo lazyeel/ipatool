@@ -16,7 +16,10 @@ Exits non-zero with per-symbol diagnostics on any failure.
 """
 import struct, sys, os
 
-LIBDIR = sys.argv[1] if len(sys.argv) > 1 else './libs-new'
+# Default library dir is anchored to the repo root (parent of tools/),
+# so the script works from any CWD. An explicit argv[1] is used as-is.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+LIBDIR = sys.argv[1] if len(sys.argv) > 1 else os.path.join(_REPO_ROOT, 'libs-new')
 
 # --- topology (verified against Apple Music 6.5.x arm64) ---
 SAP_WORKERS = [  # defined in libstoreapi.so

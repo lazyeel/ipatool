@@ -4,10 +4,13 @@
 
 """Map FootHillPublic JNI wrappers to internal FairPlay workers in libstoreapi.so.
 Filters JNI noise helpers (exception checks, logging) to expose the real worker calls."""
-import struct, sys, re
+import struct, sys, re, os
 from capstone import Cs, CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN
 
-PATH = sys.argv[1] if len(sys.argv) > 1 else './libs-new/libstoreapi.so'
+# Default path is anchored to the repo root (parent of tools/),
+# so the script works from any CWD. An explicit argv[1] is used as-is.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+PATH = sys.argv[1] if len(sys.argv) > 1 else os.path.join(_REPO_ROOT, 'libs-new', 'libstoreapi.so')
 d = open(PATH,'rb').read()
 
 e_shoff, = struct.unpack_from('<Q', d, 0x28)

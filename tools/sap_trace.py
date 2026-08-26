@@ -2,11 +2,14 @@
 # Copyright 2026 lazyeel (https://github.com/lazyeel)
 # SPDX-License-Identifier: Apache-2.0
 
-import struct, sys
+import struct, sys, os
 from capstone import Cs, CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN
 
+# Default path is anchored to the repo root (parent of tools/),
+# so the script works from any CWD. An explicit argv[2] is used as-is.
+_REPO_ROOT = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
 want = sys.argv[1] if len(sys.argv) > 1 else 'FairPlaySAPInit'
-PATH = sys.argv[2] if len(sys.argv) > 2 else './libs-new/libstoreapi.so'
+PATH = sys.argv[2] if len(sys.argv) > 2 else os.path.join(_REPO_ROOT, 'libs-new', 'libstoreapi.so')
 d = open(PATH,'rb').read()
 e_shoff, = struct.unpack_from('<Q', d, 0x28)
 sz, num, strndx = struct.unpack_from('<HHH', d, 0x3A)
