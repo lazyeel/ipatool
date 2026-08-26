@@ -7,16 +7,16 @@ Filters JNI noise helpers (exception checks, logging) to expose the real worker 
 import struct, sys, re
 from capstone import Cs, CS_ARCH_ARM64, CS_MODE_LITTLE_ENDIAN
 
-PATH = sys.argv[1] if len(sys.argv) > 1 else './libs-classic/libstoreapi.so'
+PATH = sys.argv[1] if len(sys.argv) > 1 else './libs-new/libstoreapi.so'
 d = open(PATH,'rb').read()
 
 e_shoff, = struct.unpack_from('<Q', d, 0x28)
 sz, num, strndx = struct.unpack_from('<HHH', d, 0x3A)
+shstr_off, = struct.unpack_from('<Q', d, e_shoff + strndx*sz + 0x18)
 
 def shname(i):
-    o = e_shoff + i*sz
-    nameoff, = struct.unpack_from('<I', d, o)
-    b = d[e_shoff + strndx*sz + nameoff:]
+    nameoff, = struct.unpack_from('<I', d, e_shoff + i*sz)
+    b = d[shstr_off + nameoff:]
     return b[:b.find(b'\0')].decode()
 
 secs = []
