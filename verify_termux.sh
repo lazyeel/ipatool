@@ -115,15 +115,23 @@ fi
 
 # ── [4] compile harnesses ─────────────────────────────────────────────────
 section "[4] compile adi_test + sap_test"
-if clang adi_test.c -O2 -Wall -o adi_test -ldl -lcurl -lcrypto 2>$VT_TMP/vt_cc1.log; then
-    ok "adi_test compiled clean (-Wall)"
+if clang adi_test.c -O2 -Wall -o adi_test -ldl -lcurl -lcrypto 2>"$VT_TMP/vt_cc1.log"; then
+    if [ -s "$VT_TMP/vt_cc1.log" ]; then
+        bad "adi_test compiled but WITH WARNINGS"; sed 's/^/      /' "$VT_TMP/vt_cc1.log"
+    else
+        ok "adi_test compiled clean (-Wall)"
+    fi
 else
-    bad "adi_test compile failed"; tail -10 $VT_TMP/vt_cc1.log | sed 's/^/      /'
+    bad "adi_test compile failed"; tail -10 "$VT_TMP/vt_cc1.log" | sed 's/^/      /'
 fi
-if clang sap_test.c -O2 -Wall -o sap_test -ldl -lcurl -lcrypto 2>$VT_TMP/vt_cc2.log; then
-    ok "sap_test compiled clean (-Wall)"
+if clang sap_test.c -O2 -Wall -o sap_test -ldl -lcurl -lcrypto 2>"$VT_TMP/vt_cc2.log"; then
+    if [ -s "$VT_TMP/vt_cc2.log" ]; then
+        bad "sap_test compiled but WITH WARNINGS"; sed 's/^/      /' "$VT_TMP/vt_cc2.log"
+    else
+        ok "sap_test compiled clean (-Wall)"
+    fi
 else
-    bad "sap_test compile failed"; tail -10 $VT_TMP/vt_cc2.log | sed 's/^/      /'
+    bad "sap_test compile failed"; tail -10 "$VT_TMP/vt_cc2.log" | sed 's/^/      /'
 fi
 
 # ── [5] adi_test: anonymous provisioning + OTP ────────────────────────────
@@ -189,7 +197,7 @@ fi
 # ── summary ───────────────────────────────────────────────────────────────
 printf '\n======== SUMMARY ========\n'
 printf '  PASS=%d  FAIL=%d  SKIP=%d\n' "$PASS" "$FAIL" "$SKIP"
-printf '  Full logs in $VT_TMP/vt_*.log\n'
+printf '  Full logs in %s/vt_*.log\n' "$VT_TMP"
 if [ "$FAIL" -eq 0 ]; then
     printf '  RESULT: ALL GREEN (skips are environment-limited, not code faults)\n'
     exit 0

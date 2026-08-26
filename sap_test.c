@@ -136,7 +136,10 @@ int main(int argc, char *argv[]) {
     printf("\n[sap] === PHASE A ===\n");
     mkdir("./fairplay-data", 0755);
     static char fp_data[512];
-    realpath("./fairplay-data", fp_data);
+    if (!realpath("./fairplay-data", fp_data)) {
+        fprintf(stderr, "[sap] realpath(./fairplay-data) failed\n");
+        return 1;
+    }
 
     int rc = ((int (*)(const char *))fp_loadlib)(fp_data);
     printf("[A1] LoadLib => %d\n", rc);
