@@ -3,19 +3,28 @@
 *.so
 libs/
 libs-classic/
-apple_music*.xapk
-am_x/
+libs-new/
 adi-data/
 adi_identifier
+
+# downloaded packages & IPAs (fetch via get_libs.sh / ipatool)
+*.apk
+*.xapk
+*.ipa
+am_old/
+am_x/
+
+# local build output
+build/
+build-adi/
+ipatool
+adi_test
+sap_test
 
 # nix build output
 result
 result-*
 
-# local build output
-build/
-
-# downloaded APKs
-am_old/
-libs-new/
-am_new.xapk
+# Python
+__pycache__/
+*.pyc
