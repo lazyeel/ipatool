@@ -21,6 +21,9 @@ ipatool
 adi_test
 sap_test
 
+# verification scratch space (verify_termux.sh logs; Android /tmp is closed)
+/tmp/
+
 # nix build output
 result
 result-*
