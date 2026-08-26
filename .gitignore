@@ -12,6 +12,9 @@ adi_identifier
 result
 result-*
 
+# local build output
+build/
+
 # downloaded APKs
 am_old/
 libs-new/
