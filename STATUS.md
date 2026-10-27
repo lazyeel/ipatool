@@ -1,5 +1,20 @@
 # STATUS: native ADI anisette engine (`adi-engine` branch)
 
+# ipatool-adi
+
+> ⚠️ **DEVELOPMENT MOVED TO PERUN**
+> 
+> This experimental C++ fork is superseded and no longer maintained. 
+> All active development, the standalone Bionic ADI engine, and the native FairPlay SAP runtime have moved to **[PERun](https://github.com/lazyeel/perun)**.
+> 
+> **PERun** is a native PE/Mach-O micro-runtime and drop-in replacement for `ipatool` written in pure Rust:
+> - **0.26s wall time / 9.5 MiB peak RSS** (35× faster than Unicorn-based signers).
+> - Native execution on bare CPU without Wine, QEMU, or instruction emulation.
+> - Full StoreKit client (login, 2FA, free purchase, streaming ZIP64 download).
+> - Autonomous Anisette v3 / ADI research lane.
+> 
+> 👉 **Repository:** https://github.com/lazyeel/perun (check all branches)
+
 State as of 2026-08-24. Read this before touching the code. Each invariant in the next section was found the hard way.
 
 This document tracks all branches. The same file ships on `main`, `adi-engine`, and `sap-engine`.
