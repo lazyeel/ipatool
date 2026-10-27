@@ -1,5 +1,18 @@
 # ipatool-adi
 
+> ⚠️ **DEVELOPMENT MOVED TO PERUN**
+> 
+> This experimental C++ fork is superseded and no longer maintained. 
+> All active development, the standalone Bionic ADI engine, and the native FairPlay SAP runtime have moved to **[PERun](https://github.com/lazyeel/perun)**.
+> 
+> **PERun** is a native PE/Mach-O micro-runtime and drop-in replacement for `ipatool` written in pure Rust:
+> - **0.26s wall time / 9.5 MiB peak RSS** (35× faster than Unicorn-based signers).
+> - Native execution on bare CPU without Wine, QEMU, or instruction emulation.
+> - Full StoreKit client (login, 2FA, free purchase, streaming ZIP64 download).
+> - Autonomous Anisette v3 / ADI research lane.
+> 
+> 👉 **Repository:** https://github.com/lazyeel/perun (check all branches)
+
 Extended C++ App Store client with an embedded standalone Anisette engine for Linux/Android (Termux) and SMS two-factor login. Zero external server dependencies.
 
 A hard fork of [Sorvigolova/ipatool](https://github.com/Sorvigolova/ipatool) (itself a C++ port of [majd/ipatool](https://github.com/majd/ipatool)).
